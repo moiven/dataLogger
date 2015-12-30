@@ -1,3 +1,12 @@
+/**
+  *****************************GPS data logger by Marvin Ibarra***************************
+  *
+  * simple project where i use the Venus GPS with SMA connector and Openlog from sparkfun.
+  * The gps module outputs a stream of data or NEMA code and the arduino parses this data
+  * into an easier to read string of data. This data is then sent to the Sparkfun Openlog 
+  * where it gets stored into a .TXT file.
+**/
+
 #include <SoftwareSerial.h>
 SoftwareSerial gpsSerial(10, 11); // RX, TX
 
@@ -6,6 +15,7 @@ SoftwareSerial gpsSerial(10, 11); // RX, TX
 
 int count = 0;
 
+/**************************************Setup******************************************/
 void setup()
 {
   pinMode(BUTTON, INPUT_PULLUP);
@@ -14,30 +24,7 @@ void setup()
   gpsSerial.begin(9600);
 }
 
-//The main function
-void loop()
-{
-  String data;
-  
-  readGps(data);  //collect NEMA code
-  count++;  //one count is 1 second
-  
-  //button event
-  //turn on LED for the whole event
-  if(!digitalRead(BUTTON))
-  {
-    analogWrite(EVENT_LED, 172);
-    manipulateData(data);
-    printEvent(data);
-    analogWrite(EVENT_LED, 0);
-  }
-  if(count < 300) return;  //for every 5 minutes the location is saved
-  
-  manipulateData(data);  //move the data around
-  printData(data);
-  count = 0x00;
-}
-
+/************************************Read NEMA****************************************/
 void readGps(String& data)
 {
   char gpsData;
@@ -53,6 +40,7 @@ void readGps(String& data)
   return;
 }
 
+/************************************Manipulate NEMA******************************************/
 void manipulateData(String& data)
 {
   int intHour;
@@ -64,10 +52,7 @@ void manipulateData(String& data)
   for(int i = 0; i < data.length(); i++)
   {
     if(data[i] == ',')
-    {
-      location[count] = i;
-      count++;
-    }
+      location[count++] = i;
   }
   
   hour = data.substring(location[0]+1, location[0]+3);  //grabbing the hour
@@ -82,17 +67,45 @@ void manipulateData(String& data)
   month = data.substring(location[8]+3, location[8]+5);  //grabbing the month
   year = data.substring(location[8]+5, location[8]+7);  //grabbing the year
   
+  //string of easy to read data
   data = month + "/" + day + "/" + year + " " + hour + ":" + minute + "(UTC) " + latitude + latPole + " " + longitude + longPole;  //putting it all together
 }
-
+/*****************************************Printing Data******************************************/
 void printData(String data)
 {
   gpsSerial.println(data);
   //Serial.println(data);
 }
 
+/******************************************Printing Event******************************************/
 void printEvent(String data)
 {
   gpsSerial.println(data + " EVENT: Pit Stop");
   //Serial.println(data + " EVENT: Pit Stop");
+}
+
+/**********************************************main loop******************************************/
+void loop()
+{
+  String data;
+  
+  //collect NEMA code
+  readGps(data);
+  //one count is 1 second
+  count++;
+  
+  //button event
+  //turn on LED for the whole event
+  if(!digitalRead(BUTTON))
+  {
+    analogWrite(EVENT_LED, 172);
+    manipulateData(data);
+    printEvent(data);
+    analogWrite(EVENT_LED, 0);
+  }
+  if(count < 300) return;  //the location is saved every 5 minutes
+  
+  manipulateData(data);  //move the data around
+  printData(data);
+  count = 0x00;
 }
