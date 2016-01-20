@@ -52,7 +52,7 @@ String event[STR_EVENT_SIZE] = {"Pit Stop", "Interest", "Rest Area", "SOS", "Tra
 int history = 0, pos = 0;
 
 //////////GPS variables//////////
-String hour, minute, latitude, latPole, longitude, longPole, day, month, year;
+String hour, minute, latitudeDegree, latitudeMinute, latPole, longitudeDegree, longitudeMinute, longPole, day, month, year;
 
 //////////OLED variables/////////
 bool updateFlag = false;
@@ -153,7 +153,9 @@ void parseNema(String& nemaCode)
 
   //find the location of every comma
   //to find the start and end of every field
-  for(int i = 0; i < nemaCode.length(); i++)
+  //decided not to use this method because (1)the GPS will output a default nema code with leading zeros even if it cannot 
+  //comm with a satellite so there wont be any need to find the commas because the comma locations will never change
+/*  for(int i = 0; i < nemaCode.length(); i++)
   {
     if(nemaCode[i] == ',')
       commaLoc[j++] = i;
@@ -163,8 +165,8 @@ void parseNema(String& nemaCode)
   hour = nemaCode.substring(commaLoc[0]+1, commaLoc[0]+3);
   //get the minutes
   minute = nemaCode.substring(commaLoc[0]+3, commaLoc[0]+5);
-  //get the latitude
-  latitude = nemaCode.substring(commaLoc[2]+1, commaLoc[3]);
+  //get the latitude degree
+  latitude = nemaCode.substring(commaLoc[2]+1, commaLoc[commaLoc[3]);
   //get the latitude pole (N or S)
   latPole = nemaCode.substring(commaLoc[3]+1, commaLoc[4]);
   //get the longitude
@@ -177,10 +179,33 @@ void parseNema(String& nemaCode)
   month = nemaCode.substring(commaLoc[8]+3, commaLoc[8]+5);
   //get the year
   year = nemaCode.substring(commaLoc[8]+5, commaLoc[8]+7);
+*/
+  //get the hour
+  hour = nemaCode.substring(7, 9);
+  //get the minutes
+  minute = nemaCode.substring(9, 11);
+  //get the latitude degree
+  latitudeDegree = nemaCode.substring(20, 22);
+  //get the latitude minute
+  latitudeMinute = nemaCode.substring(22, 29);
+  //get the latitude pole (N or S)
+  latPole = nemaCode.substring(30, 31);
+  //get the longitude degree
+  longitudeDegree = nemaCode.substring(32, 35);
+  //get the longitide minute
+  longitudeMinute = nemaCode.substring(35, 42);
+  //get the longitude pole (E or W)
+  longPole = nemaCode.substring(43, 44);
+  //get the day
+  day = nemaCode.substring(57, 59);
+  //get the month
+  month = nemaCode.substring(59, 61);
+  //get the year
+  year = nemaCode.substring(61, 63);
 }
 
 /********************************Convert Date and Time*************************************/
-void convertTime()
+void convertData()
 {  
   //convert hour to integer
   int hourInt = hour.toInt();
@@ -198,11 +223,35 @@ void convertTime()
   }
   //convert hour integer to string and add a leading zero if needed
   if(hourInt < 10)
-    hour = "0" + String(hourInt);
+    hour = '0' + String(hourInt);
   else
     hour = String(hourInt);
   //convert day integer to string
   day = String(dayInt);
+
+  //convert latitude degree to float
+  float latDeg = latitudeDegree.toFloat();
+  //convert longitude to float
+  float longDeg = longitudeDegree.toFloat();
+  //convert latitude minutes to float
+  float latMin = latitudeMinute.toFloat();
+  //convert longitude to float
+  float longMin = longitudeMinute.toFloat();
+
+  //dividing the minutes by 60 and adding to the degree
+  latDeg += latMin/60;
+  longDeg += longMin/60;
+
+  //convert back to string and if poles are not N or E convert to negative degrees
+  if(latPole == "S")
+    latitudeDegree = '-' + String(latDeg);
+  if(longPole == "W")
+    longitudeDegree = '-' + String(longDeg);
+  else
+  {
+    latitudeDegree = String(latDeg);
+    longitudeDegree = String(longDeg);
+  }
 }
 /************************************update to OLED***************************************/
 void updateOLED()
@@ -211,10 +260,10 @@ void updateOLED()
   oled.clear(PAGE);
   //latitude on the 1st line
   oled.setCursor(0,FIRST_LINE);
-  oled.print(latitude);
+  oled.print(latitudeDegree);
   //longitude on the 2nd line
   oled.setCursor(0,SECOND_LINE);
-  oled.print(longitude);
+  oled.print(longitudeDegree);
   //date on the 3rd line
   oled.setCursor(0,THIRD_LINE);
   oled.print(month + '/' + day + '/' + year);
@@ -241,7 +290,7 @@ void updateOLED()
 void printLogger()
 {  
   //string of all the data parsed
-  String data = month +'/'+ day +'/'+ year +' '+ hour +':'+ minute +" "+ TIME_ZONE +" "+ latitude + latPole +' '+ longitude + longPole;
+  String data = month +'/'+ day +'/'+ year +','+ hour +':'+ minute +','+ latitudeDegree +','+ longitudeDegree;
   
   //adding the event if triggered
   if(eventFlag)
@@ -264,7 +313,7 @@ void loop()
     String nemaCode;
     readGPS(nemaCode);
     parseNema(nemaCode);
-    convertTime();
+    convertData();
     sCounter--;
     updateFlag = true;
   }
